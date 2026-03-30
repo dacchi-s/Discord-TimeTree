@@ -1,0 +1,2 @@
+# Discord-TimeTree
+Discordの特定チャンネルに投稿された自然言語から、TimeTreeに予定を登録するボットです。
