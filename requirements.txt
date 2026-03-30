@@ -1,0 +1,6 @@
+discord.py>=2.4.0
+selenium>=4.20.0
+webdriver-manager>=4.0.2
+python-dotenv>=1.0.0
+openai>=1.50.0  # OpenAI API (他のLLMも対応可能)
+anthropic>=0.40.0  # Claude API

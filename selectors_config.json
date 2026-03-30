@@ -1,0 +1,115 @@
+{
+  "login_email": [
+    "[data-test-id=\"signin-form-email\"]",
+    "input[name=\"email\"]",
+    "input[type=\"email\"]"
+  ],
+  "login_password": [
+    "[data-test-id=\"signin-form-password\"]",
+    "input[name=\"password\"]",
+    "input[type=\"password\"]"
+  ],
+  "login_submit": [
+    "[data-test-id=\"signin-form-submit\"]",
+    "button[type=\"submit\"]"
+  ],
+  "calendar_selector": [
+    "[data-test-id=\"calendar-selector\"]",
+    "button[aria-label*=\"calendar\"]",
+    "button[aria-label*=\"カレンダー\"]"
+  ],
+  "calendar_item": [
+    "[data-test-id=\"calendar-item\"]",
+    "a[href*=\"/calendar\"]"
+  ],
+  "create_button": [
+    ".fcsm7z0 > div:nth-child(2) > button:nth-child(1)",
+    "[data-test-id=\"create-button\"]",
+    "button[aria-label*=\"create\"]",
+    "button[aria-label*=\"作成\"]",
+    "button:has(svg)"
+  ],
+  "event_title": [
+    ".css-1yhz41h",
+    "div[contenteditable=\"true\"]",
+    "[data-test-id=\"event-title\"]",
+    "input[name=\"title\"]",
+    "input[placeholder*=\"title\"]",
+    "input[placeholder*=\"タイトル\"]",
+    "input[placeholder*=\"Title\"]",
+    "input[aria-label*=\"title\"]",
+    "input[aria-label*=\"タイトル\"]",
+    "textarea[placeholder*=\"title\"]",
+    "input[type=\"text\"]"
+  ],
+  "event_start": [
+    "[data-test-id=\"start-date-picker\"]",
+    "div.css-1vptl7o:nth-child(1)",
+    "[data-test-id=\"event-start\"]",
+    "input[name=\"startDate\"]",
+    "input[placeholder*=\"start\"]",
+    "input[placeholder*=\"開始\"]",
+    "input[placeholder*=\"Start\"]",
+    "input[name=\"start\"]",
+    "input[aria-label*=\"start\"]"
+  ],
+  "event_start_time": [
+    "[data-test-id=\"start-time-picker\"]",
+    "input[name=\"startTime\"]",
+    "input[placeholder*=\"time\"]",
+    "input[placeholder*=\"時刻\"]"
+  ],
+  "event_end_time": [
+    "[data-test-id=\"end-time-picker\"]",
+    "input[name=\"endTime\"]",
+    "input[placeholder*=\"end time\"]",
+    "input[placeholder*=\"終了時刻\"]"
+  ],
+  "event_end": [
+    "[data-test-id=\"end-date-picker\"]",
+    "input[name=\"endDate\"]",
+    "div.css-1vptl7o:nth-child(2)",
+    "[data-test-id=\"event-end\"]",
+    "input[placeholder*=\"end\"]",
+    "input[placeholder*=\"終了\"]",
+    "input[placeholder*=\"End\"]",
+    "input[name=\"end\"]",
+    "input[aria-label*=\"end\"]"
+  ],
+  "event_location": [
+    "[data-test-id=\"event-location\"]",
+    "input[placeholder*=\"location\"]",
+    "input[placeholder*=\"場所\"]",
+    "input[placeholder*=\"Location\"]",
+    "input[name=\"location\"]",
+    "input[aria-label*=\"location\"]"
+  ],
+  "event_description": [
+    "[data-test-id=\"event-description\"]",
+    "textarea[placeholder*=\"description\"]",
+    "textarea[placeholder*=\"説明\"]",
+    "textarea[placeholder*=\"Description\"]",
+    "textarea[name=\"description\"]",
+    "div[contenteditable=\"true\"]"
+  ],
+  "event_all_day": [
+    "#allday-checkbox",
+    "div[role=\"checkbox\"]",
+    ".ttfont-check_box",
+    "[data-test-id=\"event-all-day\"]",
+    "input[type=\"checkbox\"]"
+  ],
+  "event_save": [
+    "._1e0xpu30",
+    "[data-test-id=\"event-save\"]",
+    "button[type=\"submit\"]",
+    "button[class*=\"save\"]",
+    "button[class*=\"Save\"]",
+    "button[class*=\"submit\"]"
+  ],
+  "event_cancel": [
+    "[data-test-id=\"event-cancel\"]",
+    "button[class*=\"cancel\"]",
+    "button[class*=\"Cancel\"]"
+  ]
+}

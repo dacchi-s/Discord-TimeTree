@@ -1,0 +1,22 @@
+[Unit]
+Description=Discord TimeTree Bot
+After=network.target
+
+[Service]
+Type=simple
+# ラズパイの実際のパスに合わせて変更してください
+WorkingDirectory=/home/rui/Discord-Timetree
+# venvを使う場合は以下のパスに変更
+ExecStart=/home/rui/Discord-Timetree/discord-timetree/bin/python bot.py
+# venvを使わない場合はこっち
+# ExecStart=/usr/bin/python3 bot.py
+Restart=always
+RestartSec=10
+# venvのPATHを設定
+Environment="PATH=/home/rui/Discord-Timetree/discord-timetree/bin:/usr/local/bin:/usr/bin"
+# StandardOutput/Error for logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
