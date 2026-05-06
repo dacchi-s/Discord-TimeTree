@@ -258,7 +258,6 @@ Discordの指定チャンネルで以下のように投稿:
 ├── .env.example               # 環境変数のテンプレート
 ├── .gitignore                 # Git除外設定
 ├── requirements.txt           # 依存ライブラリ
-├── CLAUDE.md                  # AIアシスタント用ガイドライン
 │
 ### 検査・デバッグユーティリティ
 ├── inspect_timetree.py        # TimeTree要素検査
