@@ -1,7 +1,9 @@
 """TimeTree UIスキャナー - CSSセレクタを網羅的に収集・解析"""
 import json
+import logging
 import os
 import platform
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +15,36 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 from config import config
 
+logger = logging.getLogger(__name__)
+
+LOG_FORMAT = "[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d-%H:%M:%S"
+
+
+def _setup_logging() -> Path:
+    """スキャナー用ロギングを設定（コンソール＋ファイル）"""
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+
+    log_path = log_dir / f"scanner_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+    root_logger = logging.getLogger("selector_scanner")
+    root_logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+
+    return log_path
+
 
 class SelectorScanner:
     """TimeTreeのUIをスキャンしてCSSセレクタを収集"""
@@ -20,7 +52,7 @@ class SelectorScanner:
     def __init__(self, headless: bool = False):
         # ディスプレイがない場合は自動的にheadlessモードを使用
         if not headless and not os.environ.get('DISPLAY'):
-            print("No display detected, forcing headless mode")
+            logger.warning("No display detected, forcing headless mode")
             headless = True
 
         self.headless = headless
@@ -32,6 +64,8 @@ class SelectorScanner:
 
     def _setup_driver(self):
         """Chrome WebDriverを設定"""
+        logger.info("Setting up Chrome WebDriver (headless=%s, os=%s, arch=%s)",
+                     self.headless, platform.system(), platform.machine())
         options = Options()
         if self.headless:
             options.add_argument("--headless=new")
@@ -56,8 +90,10 @@ class SelectorScanner:
             for path in chromium_paths:
                 if os.path.exists(path):
                     chromium_binary = path
-                    print(f"Using Chromium at: {path}")
+                    logger.info("Using Chromium at: %s", path)
                     break
+            else:
+                logger.warning("No Chromium binary found on Linux")
 
         # ARMアーキテクチャの場合、webdriver-managerはスキップ
         is_linux_arm = (
@@ -80,9 +116,10 @@ class SelectorScanner:
             try:
                 service = Service(ChromeDriverManager().install())
                 self.driver = webdriver.Chrome(service=service, options=options)
+                logger.info("WebDriverManager succeeded")
                 return
             except Exception as e:
-                print(f"WebDriverManager failed: {e}")
+                logger.warning("WebDriverManager failed: %s", e)
 
         # システムのchromedriverを試す
         for driver_path, chrome_path in driver_chrome_pairs:
@@ -92,12 +129,12 @@ class SelectorScanner:
                 options.binary_location = chrome_path
 
                 service = Service(driver_path)
-                print(f"Attempting: {driver_path} with {chrome_path}")
+                logger.info("Attempting: %s with %s", driver_path, chrome_path)
                 self.driver = webdriver.Chrome(service=service, options=options)
-                print(f"SUCCESS: Using chromedriver at: {driver_path}")
+                logger.info("SUCCESS: Using chromedriver at: %s", driver_path)
                 return
             except Exception as e:
-                print(f"Failed: {driver_path} - {e}")
+                logger.warning("Failed: %s - %s", driver_path, e)
                 continue
 
         # ARM Linuxの場合、Selenium Managerはスキップ
@@ -111,13 +148,25 @@ class SelectorScanner:
         try:
             self.driver = webdriver.Chrome(options=options)
         except Exception as e2:
-            print(f"All chromedriver attempts failed: {e2}")
+            logger.error("All chromedriver attempts failed: %s", e2)
             raise
 
     def _teardown_driver(self):
         """WebDriverを終了"""
         if self.driver:
             self.driver.quit()
+
+    def _log_browser_console(self, page_name: str):
+        """ブラウザのコンソールログをDEBUGで記録"""
+        try:
+            logs = self.driver.get_log("browser")
+            if logs:
+                for entry in logs:
+                    logger.debug("[browser:%s] %s: %s", page_name, entry.get("level", "?"), entry.get("message", ""))
+            else:
+                logger.debug("[browser:%s] No console logs", page_name)
+        except Exception as e:
+            logger.debug("[browser:%s] Could not retrieve console logs: %s", page_name, e)
 
     def _get_all_interactive_elements(self) -> List[Dict[str, Any]]:
         """ページ上のすべてのインタラクティブ要素を取得"""
@@ -269,11 +318,14 @@ class SelectorScanner:
 
     def scan_login_page(self) -> Dict[str, Any]:
         """ログインページをスキャン"""
-        print("Scanning login page...")
+        logger.info("Scanning login page...")
         self.driver.get("https://timetreeapp.com/signin")
         time.sleep(3)
+        logger.debug("Login page URL: %s", self.driver.current_url)
+        logger.debug("Login page title: %s", self.driver.title)
 
         elements = self._get_all_interactive_elements()
+        logger.debug("Found %d interactive elements on login page", len(elements))
         login_selectors = {
             "email_candidates": [],
             "password_candidates": [],
@@ -291,14 +343,22 @@ class SelectorScanner:
                 login_selectors["submit_candidates"].append(elem)
 
         self.selectors_data["selectors"]["login"] = login_selectors
+        self._log_browser_console("login")
+        logger.debug("Login selectors: email=%d, password=%d, submit=%d",
+                      len(login_selectors["email_candidates"]),
+                      len(login_selectors["password_candidates"]),
+                      len(login_selectors["submit_candidates"]))
         return login_selectors
 
     def scan_calendar_page(self) -> Dict[str, Any]:
         """カレンダーページをスキャン（ログイン後）"""
-        print("Scanning calendar page...")
+        logger.info("Scanning calendar page...")
         time.sleep(2)
+        logger.debug("Calendar page URL: %s", self.driver.current_url)
+        logger.debug("Calendar page title: %s", self.driver.title)
 
         elements = self._get_all_interactive_elements()
+        logger.debug("Found %d interactive elements on calendar page", len(elements))
         calendar_selectors = {
             "create_button_candidates": [],
             "calendar_selector_candidates": [],
@@ -316,27 +376,38 @@ class SelectorScanner:
                 calendar_selectors["calendar_item_candidates"].append(elem)
 
         self.selectors_data["selectors"]["calendar"] = calendar_selectors
+        self._log_browser_console("calendar")
+        logger.debug("Calendar selectors: create=%d, selector=%d, item=%d",
+                      len(calendar_selectors["create_button_candidates"]),
+                      len(calendar_selectors["calendar_selector_candidates"]),
+                      len(calendar_selectors["calendar_item_candidates"]))
         return calendar_selectors
 
     def scan_event_form(self) -> Dict[str, Any]:
         """イベント作成フォームをスキャン"""
-        print("Scanning event creation form...")
+        logger.info("Scanning event creation form...")
+        logger.debug("Event form page URL: %s", self.driver.current_url)
 
         # まず作成ボタンを探してクリック
         time.sleep(2)
         try:
             # テキスト内容でボタンを探す
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            logger.debug("Found %d buttons on page", len(buttons))
             for btn in buttons:
                 text = btn.text.lower()
                 if "create" in text or "new" in text or "+" in text or "予定" in text:
+                    logger.debug("Clicking create button: '%s'", btn.text)
                     btn.click()
                     time.sleep(2)
                     break
+            else:
+                logger.warning("No create button found on page")
         except Exception as e:
-            print(f"Could not click create button: {e}")
+            logger.warning("Could not click create button: %s", e)
 
         elements = self._get_all_interactive_elements()
+        logger.debug("Found %d interactive elements in event form", len(elements))
         form_selectors = {
             "title_input_candidates": [],
             "start_input_candidates": [],
@@ -369,6 +440,17 @@ class SelectorScanner:
                 form_selectors["cancel_button_candidates"].append(elem)
 
         self.selectors_data["selectors"]["event_form"] = form_selectors
+        self._log_browser_console("event_form")
+        logger.debug("Event form selectors: title=%d, start=%d, end=%d, location=%d, "
+                      "description=%d, all_day=%d, save=%d, cancel=%d",
+                      len(form_selectors["title_input_candidates"]),
+                      len(form_selectors["start_input_candidates"]),
+                      len(form_selectors["end_input_candidates"]),
+                      len(form_selectors["location_input_candidates"]),
+                      len(form_selectors["description_input_candidates"]),
+                      len(form_selectors["all_day_toggle_candidates"]),
+                      len(form_selectors["save_button_candidates"]),
+                      len(form_selectors["cancel_button_candidates"]))
 
         # フォームを閉じる
         try:
@@ -380,6 +462,7 @@ class SelectorScanner:
 
     def run_full_scan(self, save_path: str = "selectors_data.json") -> Dict[str, Any]:
         """フルスキャンを実行"""
+        logger.info("=== Full scan started ===")
         try:
             self._setup_driver()
             self.selectors_data["scan_date"] = datetime.now().isoformat()
@@ -388,8 +471,8 @@ class SelectorScanner:
             self.scan_login_page()
 
             # ログイン（スキャン目的のため、手動でログインしてもらうか、設定がある場合は自動）
-            print("\n--- Please login manually if needed ---")
-            print("Waiting 30 seconds for manual login...")
+            logger.info("--- Please login manually if needed ---")
+            logger.info("Waiting 30 seconds for manual login...")
             time.sleep(30)
 
             # カレンダーページスキャン
@@ -401,16 +484,18 @@ class SelectorScanner:
             # 結果を保存
             self._save_scan_results(save_path)
 
+            logger.info("=== Full scan completed ===")
             return self.selectors_data
 
         finally:
             self._teardown_driver()
+            logger.info("WebDriver closed")
 
     def _save_scan_results(self, path: str):
         """スキャン結果を保存"""
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.selectors_data, f, indent=2, ensure_ascii=False)
-        print(f"\nScan results saved to {path}")
+        logger.info("Scan results saved to %s", path)
 
     def load_scan_results(self, path: str = "selectors_data.json") -> Dict[str, Any]:
         """スキャン結果を読み込み"""
@@ -486,11 +571,13 @@ def main():
     """スキャナーを実行"""
     config.validate()
 
-    print("=== TimeTree UI Scanner ===")
-    print("This will scan TimeTree's UI to find CSS selectors.")
-    print("Please login manually when prompted.\n")
+    log_path = _setup_logging()
+    logger.info("=== TimeTree UI Scanner ===")
+    logger.info("This will scan TimeTree's UI to find CSS selectors.")
+    logger.info("Please login manually when prompted.")
+    logger.info("Log file: %s", log_path)
 
-    scanner = SelectorScanner(headless=False)
+    scanner = SelectorScanner(headless=config.HEADLESS)
     results = scanner.run_full_scan()
 
     # セレクタ設定を生成
@@ -498,11 +585,19 @@ def main():
     selector_config = analyzer.generate_selector_config()
 
     # セレクタ設定を保存
-    with open("selectors_config.json", "w", encoding="utf-8") as f:
+    config_path = Path("selectors_config.json")
+    if config_path.exists():
+        config_path.chmod(0o644)
+    with open(config_path, "w", encoding="utf-8") as f:
         json.dump(selector_config, f, indent=2, ensure_ascii=False)
 
-    print("\n=== Selector Configuration Generated ===")
-    print("Saved to selectors_config.json")
+    logger.info("=== Selector Configuration Generated ===")
+    logger.info("Saved to %s", config_path)
+    logger.info("Full log: %s", log_path)
+
+    # セレクタ設定のサマリー
+    for key, selectors in selector_config.items():
+        logger.info("  %s: %d candidates", key, len(selectors))
 
 
 if __name__ == "__main__":

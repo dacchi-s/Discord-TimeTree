@@ -190,12 +190,23 @@ class SelectorManager:
 
     def find_element_by_text(self, driver: webdriver.Chrome, text: str,
                              tag: str = "button") -> Optional[Any]:
-        """テキスト内容で要素を探す"""
+        """テキスト内容・aria-label・title属性で要素を探す"""
         try:
             elements = driver.find_elements(By.TAG_NAME, tag)
             for elem in elements:
-                if text in elem.text:
+                # テキスト内容
+                if elem.text and text in elem.text:
                     print(f"  ✓ Found element by text: {text}")
+                    return elem
+                # aria-label
+                aria = elem.get_attribute("aria-label")
+                if aria and text in aria:
+                    print(f"  ✓ Found element by aria-label: {text}")
+                    return elem
+                # title属性
+                title_attr = elem.get_attribute("title")
+                if title_attr and text in title_attr:
+                    print(f"  ✓ Found element by title attr: {text}")
                     return elem
         except Exception:
             pass
@@ -208,6 +219,45 @@ class SelectorManager:
         if selector not in self.selectors[key]:
             self.selectors[key].insert(0, selector)  # 優先度を高くする
             self._save_selectors()
+
+    def validate_selector(self, driver: webdriver.Chrome, key: str) -> bool:
+        """指定キーのセレクタが現在有効か確認"""
+        candidates = self.selectors.get(key, [])
+        for selector in candidates:
+            try:
+                if selector.startswith("xpath:"):
+                    elem = driver.find_element(By.XPATH, selector[6:])
+                else:
+                    elem = driver.find_element(By.CSS_SELECTOR, selector)
+                if elem and elem.is_displayed():
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def remove_broken_selectors(self, driver: webdriver.Chrome) -> List[str]:
+        """現在使用できないセレクタをconfigから削除し、削除したキーを返す"""
+        removed = []
+        for key, candidates in list(self.selectors.items()):
+            valid = []
+            for selector in candidates:
+                try:
+                    if selector.startswith("xpath:"):
+                        elem = driver.find_element(By.XPATH, selector[6:])
+                    else:
+                        elem = driver.find_element(By.CSS_SELECTOR, selector)
+                    if elem:
+                        valid.append(selector)
+                except Exception:
+                    pass
+            if len(valid) < len(candidates):
+                if valid:
+                    self.selectors[key] = valid
+                else:
+                    removed.append(key)
+        if removed:
+            self._save_selectors()
+        return removed
 
     def _save_selectors(self):
         """セレクタ設定を保存"""

@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 # ラズパイの実際のパスに合わせて変更してください
-WorkingDirectory=/home/rui/Discord-Timetree
+WorkingDirectory=/home/pi/Discord-Timetree
 # venvを使う場合は以下のパスに変更
 ExecStart=/home/pi/Discord-Timetree/discord-timetree/bin/python bot.py
 # venvを使わない場合はこっち

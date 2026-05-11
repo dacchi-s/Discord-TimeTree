@@ -246,22 +246,24 @@ Discordの指定チャンネルで以下のように投稿:
 
 ```
 ├── bot.py                      # Discordボットのメイン処理
-├── nlp_parser.py              # LLMで自然言語解析
-├── timetree_automation.py     # SeleniumでTimeTree操作
-├── selector_manager.py        # セレクタ管理・試行
-├── selector_scanner.py        # UIセレクタスキャナー
-├── config.py                  # 設定管理
-├── test_scanner.py            # テスト・対話モードスクリプト
-├── selectors_config.json      # TimeTree UIセレクタ設定
-├── discord-timetree.service   # systemdサービスファイル
-├── .env                       # 環境変数（gitには含まれません）
-├── .env.example               # 環境変数のテンプレート
-├── .gitignore                 # Git除外設定
-├── requirements.txt           # 依存ライブラリ
+├── nlp_parser.py               # LLMで自然言語解析
+├── timetree_automation.py      # SeleniumでTimeTree操作
+├── selector_manager.py         # セレクタ管理・試行
+├── ui_diagnostic.py            # UI変更自動検知・修復
+├── selector_scanner.py         # UIセレクタスキャナー
+├── config.py                   # 設定管理
+├── test_scanner.py             # テスト・対話モードスクリプト
+├── selectors_config.json       # TimeTree UIセレクタ設定
+├── discord-timetree.service    # systemdサービスファイル
+├── .env                        # 環境変数（gitには含まれません）
+├── .env.example                # 環境変数のテンプレート
+├── .gitignore                  # Git除外設定
+├── requirements.txt            # 依存ライブラリ
+├── logs/                       # スキャナー・診断ログ出力先
 │
 ### 検査・デバッグユーティリティ
-├── inspect_timetree.py        # TimeTree要素検査
-├── inspect_timetree_v2.py     # TimeTree要素検査 v2
+├── inspect_timetree.py         # TimeTree要素検査
+├── inspect_timetree_v2.py      # TimeTree要素検査 v2
 │
 ### 個別テストスクリプト
 ├── test_chromedriver_direct.py  # ChromeDriver直接テスト
@@ -275,135 +277,34 @@ Discordの指定チャンネルで以下のように投稿:
 
 ## セレクタ設定
 
-TimeTreeのUIが変更された場合、`selectors_config.json` を更新する必要があります。
-`selector_manager.py` が複数のフォールバック候補を順に試行し、`selector_scanner.py` でUI要素の再スキャンが可能です。
+TimeTreeのUI要素は `selectors_config.json` で管理しています。
+各セレクタは複数のフォールバック候補を持ち、`data-test-id` > `id` > `name` > `aria-label` > `class` の優先順位で試行します。
 
-各セレクタは複数のフォールバック候補を持ち、`data-test-id` ベースのセレクタを優先的に使用します:
+### 自動修復（Self-Healing）
 
-```json
-{
-  "login_email": [
-    "[data-test-id=\"signin-form-email\"]",
-    "input[name=\"email\"]",
-    "input[type=\"email\"]"
-  ],
-  "login_password": [
-    "[data-test-id=\"signin-form-password\"]",
-    "input[name=\"password\"]",
-    "input[type=\"password\"]"
-  ],
-  "login_submit": [
-    "[data-test-id=\"signin-form-submit\"]",
-    "button[type=\"submit\"]"
-  ],
-  "calendar_selector": [
-    "[data-test-id=\"calendar-selector\"]",
-    "button[aria-label*=\"calendar\"]",
-    "button[aria-label*=\"カレンダー\"]"
-  ],
-  "calendar_item": [
-    "[data-test-id=\"calendar-item\"]",
-    "a[href*=\"/calendar\"]"
-  ],
-  "create_button": [
-    ".fcsm7z0 > div:nth-child(2) > button:nth-child(1)",
-    "[data-test-id=\"create-button\"]",
-    "button[aria-label*=\"create\"]",
-    "button[aria-label*=\"作成\"]",
-    "button:has(svg)"
-  ],
-  "event_title": [
-    ".css-1yhz41h",
-    "div[contenteditable=\"true\"]",
-    "[data-test-id=\"event-title\"]",
-    "input[name=\"title\"]",
-    "input[placeholder*=\"title\"]",
-    "input[placeholder*=\"タイトル\"]",
-    "input[placeholder*=\"Title\"]",
-    "input[aria-label*=\"title\"]",
-    "input[aria-label*=\"タイトル\"]",
-    "textarea[placeholder*=\"title\"]",
-    "input[type=\"text\"]"
-  ],
-  "event_start": [
-    "[data-test-id=\"start-date-picker\"]",
-    "div.css-1vptl7o:nth-child(1)",
-    "[data-test-id=\"event-start\"]",
-    "input[name=\"startDate\"]",
-    "input[placeholder*=\"start\"]",
-    "input[placeholder*=\"開始\"]",
-    "input[placeholder*=\"Start\"]",
-    "input[name=\"start\"]",
-    "input[aria-label*=\"start\"]"
-  ],
-  "event_start_time": [
-    "[data-test-id=\"start-time-picker\"]",
-    "input[name=\"startTime\"]",
-    "input[placeholder*=\"time\"]",
-    "input[placeholder*=\"時刻\"]"
-  ],
-  "event_end_time": [
-    "[data-test-id=\"end-time-picker\"]",
-    "input[name=\"endTime\"]",
-    "input[placeholder*=\"end time\"]",
-    "input[placeholder*=\"終了時刻\"]"
-  ],
-  "event_end": [
-    "[data-test-id=\"end-date-picker\"]",
-    "input[name=\"endDate\"]",
-    "div.css-1vptl7o:nth-child(2)",
-    "[data-test-id=\"event-end\"]",
-    "input[placeholder*=\"end\"]",
-    "input[placeholder*=\"終了\"]",
-    "input[placeholder*=\"End\"]",
-    "input[name=\"end\"]",
-    "input[aria-label*=\"end\"]"
-  ],
-  "event_location": [
-    "[data-test-id=\"event-location\"]",
-    "input[placeholder*=\"location\"]",
-    "input[placeholder*=\"場所\"]",
-    "input[placeholder*=\"Location\"]",
-    "input[name=\"location\"]",
-    "input[aria-label*=\"location\"]"
-  ],
-  "event_description": [
-    "[data-test-id=\"event-description\"]",
-    "textarea[placeholder*=\"description\"]",
-    "textarea[placeholder*=\"説明\"]",
-    "textarea[placeholder*=\"Description\"]",
-    "textarea[name=\"description\"]",
-    "div[contenteditable=\"true\"]"
-  ],
-  "event_all_day": [
-    "#allday-checkbox",
-    "div[role=\"checkbox\"]",
-    ".ttfont-check_box",
-    "[data-test-id=\"event-all-day\"]",
-    "input[type=\"checkbox\"]"
-  ],
-  "event_save": [
-    "._1e0xpu30",
-    "[data-test-id=\"event-save\"]",
-    "button[type=\"submit\"]",
-    "button[class*=\"save\"]",
-    "button[class*=\"Save\"]",
-    "button[class*=\"submit\"]"
-  ],
-  "event_cancel": [
-    "[data-test-id=\"event-cancel\"]",
-    "button[class*=\"cancel\"]",
-    "button[class*=\"Cancel\"]"
-  ]
-}
+TimeTreeのUI変更でセレクタが壊れた場合、`ui_diagnostic.py` が自動的に検知・修復します:
+
+1. 要素が見つからない場合、現在のページをスキャン
+2. LLM（OpenAI/Anthropic）がHTML構造を解析して新しいセレクタを提案
+3. `selectors_config.json` に自動保存してリトライ
+
+主な適用箇所: `create_button`, `event_start`, `event_save`
+
+ログでの確認:
+```
+Element 'create_button' not found, running self-heal diagnostic...
+Self-heal succeeded for 'create_button': button[aria-label="予定を作成"]
 ```
 
-これらのセレクタ（特にCSSクラス名ベースのもの）はTimeTreeのアップデートで変更される可能性があります。
-UIが変更された場合は `selector_scanner.py` を使用してセレクタを再スキャンできます:
+### 手動スキャン
+
+自動修復で解決しない場合、手動でセレクタを再スキャンできます:
 
 ```bash
 python test_scanner.py scan
 ```
+
+スキャン結果とログは `logs/` ディレクトリに保存されます。
 
 ---
 
@@ -411,9 +312,11 @@ python test_scanner.py scan
 
 ### ボットが予定を登録できない
 
-1. `.env` の設定を確認
-2. テストスクリプトで動作確認: `python test_scanner.py full`
-3. スクリーンショット（`*_not_found_*.png`）を確認
+1. ログで self-heal が動いたか確認: `sudo journalctl -u discord-timetree.service -n 50 --no-pager | grep "self-heal"`
+2. `.env` の設定を確認
+3. テストスクリプトで動作確認: `python test_scanner.py full`
+4. スクリーンショット（`*_not_found_*.png`）を確認
+5. 手動スキャンでセレクタを更新: `python test_scanner.py scan`
 
 ### ボットがオフラインになる
 
@@ -474,8 +377,9 @@ HEADLESS=false
 ## 注意事項
 
 - Seleniumによるブラウザ操作はTimeTreeのUI変更に依存します
+- UI変更時は自動修復（self-heal）が試行されますが、解決しない場合は手動スキャンが必要です
 - ヘッドレスモードで動作します
-- LLM APIの利用には別途料金がかかる場合があります
+- LLM APIの利用には別途料金がかかる場合があります（自然言語解析＋セレクタ自動修復）
 - TimeTreeの利用規約を遵守してください
 - 他のボットからのメッセージは自動的に無視されます
 
